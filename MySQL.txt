@@ -1,0 +1,282 @@
+MySQL.txt G00376315 Elizabeth Daly
+
+4.1.1
+*******************************************************************
+CREATE PROCEDURE get_ppl_visited_country(p varchar(52)) 
+DETERMINISTIC
+BEGIN
+select hv.personID, p.personname, ci.Name, hv.dateArrived, co.Name
+from country co
+INNER JOIN city ci
+ ON co.Code = ci.CountryCode
+ INNER JOIN hasvisitedcity hv
+  ON ci.ID = hv.cityID
+  INNER JOIN person p
+   ON hv.personID = p.personID
+   where co.Name like CONCAT("%", p, "%");
+END
+//
+
+
+And as copied in from MySQL Command Line Client:
+
+mysql> CREATE PROCEDURE get_ppl_visited_country(p varchar(52))
+    -> DETERMINISTIC
+    -> BEGIN
+    -> select hv.personID, p.personname, ci.Name, hv.dateArrived, co.Name
+    -> from country co
+    -> INNER JOIN city ci
+    ->  ON co.Code = ci.CountryCode
+    ->  INNER JOIN hasvisitedcity hv
+    ->   ON ci.ID = hv.cityID
+    ->   INNER JOIN person p
+    ->    ON hv.personID = p.personID
+    ->    where co.Name like CONCAT("%", p, "%");
+    -> END
+    -> //
+Query OK, 0 rows affected (0.05 sec)
+
+mysql> call get_ppl_visited_country("land");
+
++----------+------------+-----------+-------------+-------------+
+| personID | personname | Name      | dateArrived | Name        |
++----------+------------+-----------+-------------+-------------+
+|        1 | Tom        | Dordrecht | 2002-02-11  | Netherlands |
+|        2 | Alan       | Arnhem    | 2005-04-14  | Netherlands |
+|        3 | Sean       | Dordrecht | 2000-06-20  | Netherlands |
+|        4 | Sara       | Zürich    | 1999-01-20  | Switzerland |
++----------+------------+-----------+-------------+-------------+
+4 rows in set (0.00 sec)
+
+Query OK, 0 rows affected (0.05 sec)
+
+mysql> call get_ppl_visited_country("d")//
++----------+------------+----------------+-------------+----------------+
+| personID | personname | Name           | dateArrived | Name           |
++----------+------------+----------------+-------------+----------------+
+|        1 | Tom        | Dordrecht      | 2002-02-11  | Netherlands    |
+|        1 | Tom        | Tanjung Pinang | 2001-09-12  | Indonesia      |
+|        2 | Alan       | Arnhem         | 2005-04-14  | Netherlands    |
+|        2 | Alan       | Purulia        | 2005-06-20  | India          |
+|        2 | Alan       | New York       | 2012-01-30  | United States  |
+|        3 | Sean       | Dordrecht      | 2000-06-20  | Netherlands    |
+|        3 | Sean       | New York       | 2018-08-01  | United States  |
+|        4 | Sara       | Saint Helier   | 1999-05-20  | United Kingdom |
+|        4 | Sara       | Jaunpur        | 1998-06-20  | India          |
+|        4 | Sara       | Zürich         | 1999-01-20  | Switzerland    |
+|        6 | Michael    | Saint Helier   | 2015-05-20  | United Kingdom |
++----------+------------+----------------+-------------+----------------+
+11 rows in set (0.00 sec)
+
+Query OK, 0 rows affected (0.03 sec)
+
+4.1.2
+*******************************************************************
+CREATE FUNCTION ren_continent(n varchar(52))
+RETURNS varchar(52)
+DETERMINISTIC
+BEGIN
+IF  n = "Oceania" THEN return "Australia";
+ ELSEIF n = "Antarctica" THEN return "South Pole";
+ ELSEIF n = "North America" OR n = "South America" THEN return "Americas";
+ ELSE return " ";
+END IF;
+END//
+
+
+And as copied in from MySQL Command Line Client:
+
+mysql> CREATE FUNCTION ren_continent(n varchar(52))
+    -> RETURNS varchar(52)
+    -> DETERMINISTIC
+    -> BEGIN
+    -> IF  n = "Oceania" THEN return "Australia";
+    ->  ELSEIF n = "Antarctica" THEN return "South Pole";
+    ->  ELSEIF n = "North America" OR n = "South America" THEN return "Americas";
+    ->  ELSE return " ";
+    -> END IF;
+    -> END//
+Query OK, 0 rows affected (0.05 sec)
+
+mysql> select Continent as "Original Name", ren_continent(Continent) as "New Name"
+    -> from country;
++---------------+------------+
+| Original Name | New Name   |
++---------------+------------+
+| North America | Americas   |
+| Asia          |            |
+| Africa        |            |
+| North America | Americas   |
+| Europe        |            |
+| Europe        |            |
+| North America | Americas   |
+| Asia          |            |
+| South America | Americas   |
+| Asia          |            |
+| Oceania       | Australia  |
+| Antarctica    | South Pole |
+| Antarctica    | South Pole |
+| North America | Americas   |
+| Oceania       | Australia  |
+| Europe        |            |
+
+
+4.1.3
+*******************************************************************
+select Continent, Name, Population from country
+where Population in (
+ select max(Population) from country
+ where Population > 0
+ group by Continent
+);
+
+
+And as copied in from MySQL Command Line Client:
+
+mysql> select Continent, Name, Population from country
+    -> where Population in (
+    ->  select max(Population) from country
+    ->  where Population > 0
+    ->  group by Continent
+    -> );
++---------------+--------------------+------------+
+| Continent     | Name               | Population |
++---------------+--------------------+------------+
+| Oceania       | Australia          |   18886000 |
+| South America | Brazil             |  170115000 |
+| Asia          | China              | 1277558000 |
+| Africa        | Nigeria            |  111506000 |
+| Europe        | Russian Federation |  146934000 |
+| North America | United States      |  278357000 |
++---------------+--------------------+------------+
+6 rows in set (0.00 sec)
+
+
+4.1.4
+*******************************************************************
+select Name from city
+where Population = (
+ select min(Population) from city
+ where ID in (
+  select cityID from hasvisitedcity
+   where personID in (
+    select personID from person
+    where age = (select min(age) from person)
+)));
+
+
+And as copied in from MySQL Command Line Client:
+
+mysql> select Name from city
+    -> where Population = (
+    ->  select min(Population) from city
+    ->  where ID in (
+    ->   select cityID from hasvisitedcity
+    ->   where personID in (
+    ->    select personID from person
+    ->    where age = (select min(age) from person)
+    -> )));
++-----------+
+| Name      |
++-----------+
+| Dordrecht |
++-----------+ 
+
+4.1.5
+*******************************************************************
+update city
+SET Population =
+CASE
+ WHEN District = "Eastern Cape" THEN Population + 1000
+ WHEN District = "Free State" THEN Population + 2000
+ WHEN District = "Western Cape" THEN Population - 10000
+ ELSE Population
+END;
+
+The districts for update only exist in South Africa, so didn't need to 
+involve country name in query.
+
+And as copied in from MySQL Command Line Client:
+
+mysql> update city
+    -> SET Population =
+    -> CASE
+    ->  WHEN District = "Eastern Cape" THEN Population + 1000
+    ->  WHEN District = "Free State" THEN Population + 2000
+    ->  WHEN District = "Western Cape" THEN Population - 10000
+    ->  ELSE Population
+    -> END;
+Query OK, 10 rows affected (0.02 sec)
+Rows matched: 4079  Changed: 10  Warnings: 0
+
+Before update:
+
+mysql> select Name, District, Population, CountryCode from city
+    -> where District IN ("Eastern Cape", "Free State", "Western Cape")
+    -> order by District;
++----------------+--------------+------------+-------------+
+| Name           | District     | Population | CountryCode |
++----------------+--------------+------------+-------------+
+| Port Elizabeth | Eastern Cape |     752319 | ZAF         |
+| East London    | Eastern Cape |     221047 | ZAF         |
+| Uitenhage      | Eastern Cape |     192120 | ZAF         |
+| Mdantsane      | Eastern Cape |     182639 | ZAF         |
+| Bloemfontein   | Free State   |     334341 | ZAF         |
+| Welkom         | Free State   |     203296 | ZAF         |
+| Botshabelo     | Free State   |     177971 | ZAF         |
+| Cape Town      | Western Cape |    2352121 | ZAF         |
+| Paarl          | Western Cape |     105768 | ZAF         |
+| George         | Western Cape |      93818 | ZAF         |
++----------------+--------------+------------+-------------+
+
+After update:
+
++----------------+--------------+------------+
+| Name           | District     | Population |
++----------------+--------------+------------+
+| Port Elizabeth | Eastern Cape |     753319 |
+| East London    | Eastern Cape |     222047 |
+| Uitenhage      | Eastern Cape |     193120 |
+| Mdantsane      | Eastern Cape |     183639 |
+| Bloemfontein   | Free State   |     336341 |
+| Welkom         | Free State   |     205296 |
+| Botshabelo     | Free State   |     179971 |
+| Cape Town      | Western Cape |    2342121 |
+| Paarl          | Western Cape |      95768 |
+| George         | Western Cape |      83818 |
++----------------+--------------+------------+
+
+4.1.6
+*******************************************************************
+select Name, IndepYear,
+CASE
+ WHEN YEAR(CURDATE()) - IndepYear < 10 THEN IF( Population > 100000000, CONCAT("New Large ", GovernmentForm), CONCAT("New ", GovernmentForm))
+ WHEN IndepYear BETWEEN 1970 AND 2018 THEN IF( Population > 100000000, CONCAT("Modern Large ", GovernmentForm), CONCAT("Modern ", GovernmentForm))
+ WHEN IndepYear BETWEEN 1919 AND 1969 THEN IF( Population > 100000000, CONCAT("Early Large ", GovernmentForm), CONCAT("Early ", GovernmentForm))
+ WHEN YEAR(CURDATE()) - IndepYear > 100 THEN IF( Population > 100000000, CONCAT("Old Large ", GovernmentForm), CONCAT("Old ", GovernmentForm))
+ ELSE "n/a"
+END as "Desc"
+from country;
+
+
+And as copied in from MySQL Command Line Client:
+
+mysql> select Name, IndepYear,
+    -> CASE
+    ->  WHEN YEAR(CURDATE()) - IndepYear < 10 THEN IF( Population > 100000000, CONCAT("New Large ", GovernmentForm), CONCAT("New ", GovernmentForm))
+    ->  WHEN IndepYear BETWEEN 1970 AND 2018 THEN IF( Population > 100000000, CONCAT("Modern Large ", GovernmentForm), CONCAT("Modern ", GovernmentForm))
+    ->  WHEN IndepYear BETWEEN 1919 AND 1969 THEN IF( Population > 100000000, CONCAT("Early Large ", GovernmentForm), CONCAT("Early ", GovernmentForm))
+    ->  WHEN YEAR(CURDATE()) - IndepYear > 100 THEN IF( Population > 100000000, CONCAT("Old Large ", GovernmentForm), CONCAT("Old ", GovernmentForm))
+    ->  ELSE "n/a"
+    -> END as "Desc"
+    -> from country;
++----------------------------------------------+-----------+-------------------------------------------+
+| Name                                         | IndepYear | Desc                                      |
++----------------------------------------------+-----------+-------------------------------------------+
+| Aruba                                        |      NULL | n/a                                       |
+..
+| Bangladesh                                   |      1971 | Modern Large Republic                     |
+...
+| Brazil                                       |      1822 | Old Large Federal Republic                |
+....
+| Zimbabwe                                     |      1980 | Modern Republic                           |     

@@ -1,0 +1,33 @@
+MongoDB.txt G00376315 Elizabeth Daly
+
+
+4.3.1 Average Engine Size
+****************************************
+
+db.docs.aggregate([{$group: {_id: null, "Average engine size": {$avg:"$car.engineSize"}}}])
+{ "_id" : null, "Average engine size" : 1.34 }
+
+
+4.3.2 Categorize County Populations
+****************************************
+db.docs.aggregate( [ {$match: {"pop": {$exists:true}}}, { $project: { name: 1, "counties" : { $switch: { branches: [ { case: { $lt : [ "$pop", 50000 ] }, then: 0}, { case: { $and : [ { $gte : [ "$pop", 50000 ] }, { $lt : [ "$pop", 100000 ] } ] }, then: 50000 }, { case: {$gte: [ "$pop", 150000 ] }, then: "Other"} ], default: 100000}}}}, {$group: {_id: "$counties", counties: {$push: "$name" }  }} ] )
+{ "_id" : 100000, "counties" : [ "Mayo" ] }
+{ "_id" : 50000, "counties" : [ "Westmeath" ] }
+{ "_id" : 0, "counties" : [ "Leitrim" ] }
+{ "_id" : "Other", "counties" : [ "Galway", "Dublin" ] }
+
+I spent absolutely ages trying to figure this out. 
+I finally realised that I wasn't passing county names from the $project stage to be used by $group, via name: 1 
+
+
+4.3.3 Redefine County Populations
+****************************************
+
+db.docs.aggregate([ {$match: {"pop": {$exists:true}}}, {$project : {_id:1, name:1, pop:{ $cond:{ if: {$gte:["$pop", 100000]}, then:"Big County", else:"Small County" } } } }])
+{ "_id" : "G", "name" : "Galway", "pop" : "Big County" }
+{ "_id" : "D", "name" : "Dublin", "pop" : "Big County" }
+{ "_id" : "WH", "name" : "Westmeath", "pop" : "Small County" }
+{ "_id" : "LM", "name" : "Leitrim", "pop" : "Small County" }
+{ "_id" : "MO", "name" : "Mayo", "pop" : "Big County" }
+
+
